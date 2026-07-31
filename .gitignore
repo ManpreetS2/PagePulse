@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Production builds
+dist/
+build/
+client/dist/
+server/dist/
+
+# Environment (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Local SQLite / runtime data
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+server/data/
+uploads/
+
+# Logs and caches
+*.log
+logs/
+npm-debug.log*
+.cache/
+tmp/
+temp/
+
+# Test / coverage artifacts
+coverage/
+playwright-report/
+test-results/
+
+# Editor / OS / IDE-private
+.DS_Store
+.vscode/
+.cursor/
+.idea/
+*.swp
+*~
