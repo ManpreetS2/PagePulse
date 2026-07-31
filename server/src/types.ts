@@ -145,6 +145,8 @@ export interface MonitorRow {
   lastCheckedAt: string | null;
   nextCheckAt: string | null;
   lastError: string | null;
+  lastFetchDurationMs: number | null;
+  lastCheckSummary: string;
   createdAt: string;
   updatedAt: string;
 }

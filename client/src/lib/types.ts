@@ -52,6 +52,8 @@ export interface Monitor {
   lastCheckedAt: string | null;
   nextCheckAt: string | null;
   lastError: string | null;
+  lastFetchDurationMs?: number | null;
+  lastCheckSummary?: string;
   createdAt: string;
   updatedAt: string;
   versionCount: number;
@@ -59,6 +61,16 @@ export interface Monitor {
   unreadCount: number;
   confidence: number;
   currentSummary: string;
+  health?: {
+    displayStatus: string;
+    label: string;
+    description: string;
+    dueSoon: boolean;
+    lastCheckSummary: string;
+  };
+  monitoredSection?: string;
+  latestExtractedValue?: string | null;
+  lastSuccessfulCheckAt?: string | null;
 }
 
 export interface Snapshot {
@@ -234,4 +246,31 @@ export interface CompareResult {
     meaning: { meaningful: boolean; confidence: number; reasonCodes: string[]; explanation: string };
     intentResult: { matched: boolean; confidence: number; reason: string };
   }>;
+  factSummary?: {
+    confirmedChanged: Array<{ type: string; oldValue: string; newValue: string; context: string | null }>;
+    unchanged: Array<{ type: string; value: string; context: string | null }>;
+    ignoredUnrelated: Array<{ category: string; summary: string; reason: string }>;
+  };
+}
+
+export interface GuidedDemoResult {
+  state: {
+    step: 'idle' | 'baseline' | 'reword' | 'unrelated' | 'meaningful' | 'complete';
+    monitorId: number | null;
+    notificationId: number | null;
+    alertChangeId: number | null;
+    baselineSnapshotId: number | null;
+    latestSnapshotId: number | null;
+    message: string;
+    updatedAt: string;
+  };
+  monitor: Monitor | null;
+  outcome: {
+    alertsCreated: number;
+    status: string;
+    message: string;
+    changes: Change[];
+  } | null;
+  extractedGpa: string | null;
+  explanation: string;
 }

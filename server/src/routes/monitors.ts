@@ -7,6 +7,8 @@ import { runCheck, computeNextCheck } from '../lib/checkRunner.js';
 import { diffSectionText } from '../lib/diffEngine.js';
 import { getComparisonProvider } from '../lib/meaning.js';
 import { matchIntent, parseIntent } from '../lib/intent.js';
+import { summarizeEvidenceFacts } from '../lib/evidenceSummary.js';
+import { monitorWithExtras } from '../lib/monitorView.js';
 import { safeJson, asyncHandler, HttpError } from './helpers.js';
 
 const router = Router();
@@ -48,27 +50,6 @@ const updateSchema = z.object({
   relevanceThreshold: z.number().min(0.2).max(0.9).optional(),
   intentOverrides: intentOverridesSchema
 });
-
-function monitorWithExtras(m: MonitorRow) {
-  const db = getDb();
-  const versions = db.prepare('SELECT COUNT(*) as c FROM snapshots WHERE monitorId = ?').get(m.id) as { c: number };
-  const meaningfulChanges = db
-    .prepare('SELECT COUNT(*) as c FROM changes WHERE monitorId = ? AND meaningful = 1 AND intentMatched = 1')
-    .get(m.id) as { c: number };
-  const unread = db.prepare('SELECT COUNT(*) as c FROM notifications WHERE monitorId = ? AND read = 0').get(m.id) as { c: number };
-  const latest = db
-    .prepare("SELECT extractedFacts, sectionMatchConfidence, sectionHeading FROM snapshots WHERE monitorId = ? AND fetchStatus = 'ok' ORDER BY id DESC LIMIT 1")
-    .get(m.id) as Pick<SnapshotRow, 'extractedFacts' | 'sectionMatchConfidence' | 'sectionHeading'> | undefined;
-  return {
-    ...m,
-    intent: safeJson(m.intentJson, parseIntent(m.userIntent)),
-    versionCount: versions.c,
-    meaningfulChangeCount: meaningfulChanges.c,
-    unreadCount: unread.c,
-    confidence: latest?.sectionMatchConfidence ?? 1,
-    currentSummary: m.extractedTargetDescription
-  };
-}
 
 function requireMonitor(id: number): MonitorRow {
   const m = getDb().prepare('SELECT * FROM monitors WHERE id = ?').get(id) as MonitorRow | undefined;
@@ -225,11 +206,13 @@ router.get(
       const intentResult = matchIntent(change, intent, newSnap.sectionHeading);
       annotated.push({ ...change, meaning, intentResult });
     }
+    const factSummary = summarizeEvidenceFacts(oldSnap.cleanedSectionText, newSnap.cleanedSectionText, annotated);
     res.json({
       monitor: { id: monitor.id, name: monitor.name, userIntent: monitor.userIntent },
       oldSnapshot: { ...oldSnap, extractedFacts: safeJson(oldSnap.extractedFacts, []) },
       newSnapshot: { ...newSnap, extractedFacts: safeJson(newSnap.extractedFacts, []) },
-      changes: annotated
+      changes: annotated,
+      factSummary
     });
   })
 );

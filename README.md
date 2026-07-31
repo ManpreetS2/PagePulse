@@ -2,6 +2,8 @@
 
 PagePulse is an evidence-first monitoring platform that tracks meaningful changes on public webpages. Users describe what information matters, and PagePulse filters out harmless webpage noise while showing the exact evidence behind relevant alerts.
 
+**Current release: v1.1** — includes a Guided Demo that walks through baseline → rewording → unrelated change → GPA alert using the real monitoring pipeline on fictional Evaluation Lab pages.
+
 ## Overview
 
 You provide a public URL and a natural-language instruction such as *“Alert me if the minimum transfer GPA changes.”* PagePulse saves a clean baseline of the relevant page section, re-checks it on a schedule or on demand, distinguishes factual changes from cosmetic noise, and alerts **only** when a change matches your monitoring intent. Every alert shows old and new values with verbatim page evidence.
@@ -22,6 +24,7 @@ Important information lives on public pages that change silently: admission requ
 
 ## Key Features
 
+- **Guided Demo (v1.1)** — start from the landing page or dashboard; creates a sample GPA monitor and runs the live pipeline on a fictional lab page
 - Natural-language monitoring instructions with an editable structured interpretation
 - User-confirmed webpage sections — nothing is chosen silently
 - Server-side webpage fetching with SSRF protections
@@ -30,13 +33,44 @@ Important information lives on public pages that change silently: admission requ
 - Structured fact extraction: dates, prices, percentages, GPA, availability, quantities, contacts
 - Meaningful versus cosmetic change detection (values override superficial wording similarity)
 - Intent filtering by field, variant, trigger direction, and keywords
-- Confidence scores and honest *Blocked* / *Uncertain* / *Failed* states
-- Old-versus-new evidence with highlighted changed values
+- Monitor health statuses: Healthy, Due soon, Checking, Meaningful change detected, No relevant change, Blocked, Failed, Uncertain, Manual only
+- Confidence scores and honest uncertainty states
+- Old-versus-new evidence with highlighted values, confirmed/unchanged/ignored fact summaries
 - Version history and any-two-snapshot comparison
 - In-app alerts with useful / irrelevant feedback (per-monitor threshold adjustment only)
 - Scheduled and manual checks with per-domain rate limiting and retries
 - Controlled Evaluation Lab with deterministic scenarios and detection metrics
 - Dark and light themes, responsive layout, accessible dialogs and controls
+
+## Guided Demo (v1.1)
+
+From **Start Guided Demo** on the landing page or dashboard:
+
+1. Creates a monitor on `/lab-pages/transfer-gpa-workflow` watching **Minimum GPA**.
+2. Saves a baseline with extracted GPA **3.20**.
+3. Applies an equivalent rewording — no meaningful alert.
+4. Applies an unrelated deadline/footer change — ignored by the GPA intent.
+5. Applies GPA **3.20 → 3.40**, runs the real check pipeline, and opens an evidence-backed alert.
+
+Controls: Start Guided Demo, Continue, Reset Demo, Open Alert, View Version History, Return to Dashboard.
+
+## Monitor health statuses
+
+Monitor cards and detail views surface:
+
+| Status | Meaning |
+| --- | --- |
+| Healthy | Last check succeeded; nothing pending |
+| Due soon | Next scheduled check within 15 minutes |
+| Checking | A check is in progress |
+| Meaningful change detected | Intent-matched alert was created |
+| No relevant change | Content shifted but did not match intent / was not meaningful |
+| Blocked | Private/unsupported destination |
+| Failed | Fetch or check failure (with consecutive failure count) |
+| Uncertain | Section could not be matched confidently |
+| Manual only | Frequency is manual; run Check now |
+
+Also shown: last successful check, next check, fetch duration, monitored section, latest extracted value, and confidence.
 
 ## Monitor Creation Workflow
 
@@ -92,9 +126,9 @@ These metrics come from a small controlled scenario set — a rigorous smoke tes
 
 ## Screenshots
 
-| Dashboard | Alert with evidence | Evaluation Lab |
-| --- | --- | --- |
-| ![PagePulse dashboard showing monitors and summary metrics](docs/screenshots/dashboard.png) | ![Alert with old and new GPA evidence side by side](docs/screenshots/alert.png) | ![Evaluation Lab results with recall and false-alert metrics](docs/screenshots/eval-lab.png) |
+| Dashboard | Guided Demo | Alert with evidence | Evaluation Lab |
+| --- | --- | --- | --- |
+| ![PagePulse dashboard showing monitors and summary metrics](docs/screenshots/dashboard.png) | ![Guided Demo after GPA 3.20 to 3.40 alert](docs/screenshots/guided-demo.png) | ![Alert with old and new GPA evidence side by side](docs/screenshots/alert.png) | ![Evaluation Lab results with recall and false-alert metrics](docs/screenshots/eval-lab.png) |
 
 ## Architecture
 
@@ -102,18 +136,19 @@ These metrics come from a small controlled scenario set — a rigorous smoke tes
 PagePulse/
 ├── client/                 # React + Vite + Tailwind frontend
 │   └── src/
-│       ├── pages/          # Landing, Dashboard, Create, Detail, Compare, Alerts, Lab, Settings
-│       ├── components/     # Shared UI
-│       └── lib/            # API client, types, formatting
+│       ├── pages/          # Landing, Dashboard, GuidedDemo, Create, Detail, Compare, Alerts, Lab, Settings
+│       ├── components/     # Shared UI (HealthBadge, EvidenceCompare, EmptyState)
+│       └── lib/            # API client, types, formatting, monitorHealth
 ├── server/                 # Express + TypeScript backend
 │   ├── src/
-│   │   ├── lib/            # fetcher, cleaner, extract, intent, sectionMatch, diff, meaning, checkRunner
+│   │   ├── lib/            # fetcher, cleaner, extract, intent, meaning, checkRunner, guidedDemo, monitorHealth, evidenceSummary, monitorView
 │   │   ├── lab/            # Controlled pages, scenarios, eval runner
-│   │   ├── routes/         # REST API
+│   │   ├── routes/         # REST API including /api/demo/*
 │   │   ├── scripts/        # db:init, db:seed
 │   │   └── scheduler.ts    # node-cron due-monitor loop
-│   └── test/               # Vitest unit + integration tests
+│   └── test/               # Vitest unit + integration + v1.1 guided-demo tests
 ├── docs/screenshots/       # README screenshots
+├── CHANGELOG.md
 ├── data/                   # Local SQLite (git-ignored)
 ├── Dockerfile              # Optional container image
 ├── .env.example
@@ -125,6 +160,8 @@ Check pipeline:
 ```
 fetcher → cleaner → sectionMatch → diffEngine → meaning → intent → notify
 ```
+
+The Guided Demo drives that same pipeline against `/lab-pages/transfer-gpa-workflow`.
 
 In production, Express serves the built client from `client/dist`.
 
@@ -167,6 +204,7 @@ Useful scripts:
 | `npm run typecheck` | TypeScript checks for both packages |
 | `npm test` | Unit + integration tests |
 | `npm run test:eval` | Deterministic evaluation suite only |
+| `npm test` | Unit + integration + guided-demo tests |
 | `npm run db:init` / `npm run db:seed` | Database initialize / lab baseline reset |
 | `npm run build` / `npm start` | Production build and start |
 
@@ -243,6 +281,10 @@ Use a persistent Node host (for example Render, Railway, Fly.io, or a VPS):
 Computer Science Student at De Anza College
 
 Designed and developed as a portfolio project exploring full-stack development, secure webpage extraction, semantic change analysis, background scheduling, evidence-grounded explanations, and measurable software evaluation.
+
+## Release notes
+
+See [CHANGELOG.md](CHANGELOG.md) for v1.1.0 details.
 
 ## License
 

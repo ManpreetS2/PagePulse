@@ -7,7 +7,8 @@ import {
 import { del, get, patch, post } from '../lib/api';
 import type { Change, CheckFrequency, Monitor, Snapshot } from '../lib/types';
 import { CATEGORY_LABELS, FIELD_LABELS, FREQUENCY_LABELS, TRIGGER_LABELS, formatDateTime, formatRelative, percent } from '../lib/format';
-import { Button, Card, ConfidenceMeter, ConfirmDialog, ErrorBanner, EvidenceCompare, Modal, PageSpinner, StatusBadge } from '../components/ui';
+import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, EvidenceCompare, HealthBadge, Modal, PageSpinner, StatusBadge } from '../components/ui';
+import { formatDurationMs } from '../lib/monitorHealth';
 
 interface MonitorDetailData extends Monitor {
   latestSnapshot: Snapshot | null;
@@ -147,8 +148,15 @@ export default function MonitorDetail() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{monitor.name}</h1>
-            <StatusBadge status={monitor.status} />
+            {monitor.health ? (
+              <HealthBadge label={monitor.health.label} displayStatus={monitor.health.displayStatus} />
+            ) : (
+              <StatusBadge status={monitor.status} />
+            )}
           </div>
+          {monitor.health?.description && (
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{monitor.health.description}</p>
+          )}
           <a
             href={monitor.url}
             target="_blank"
@@ -231,20 +239,34 @@ export default function MonitorDetail() {
           <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">Edit the instruction to change this interpretation.</p>
         </Card>
         <Card className="p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Schedule & values</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Health & schedule</h2>
           <dl className="mt-1 space-y-1 text-sm">
             <div>
               <dt className="inline text-zinc-500 dark:text-zinc-400">Frequency: </dt>
               <dd className="inline">{FREQUENCY_LABELS[monitor.checkFrequency]}</dd>
             </div>
             <div>
-              <dt className="inline text-zinc-500 dark:text-zinc-400">Last check: </dt>
-              <dd className="inline">{formatRelative(monitor.lastCheckedAt)}</dd>
+              <dt className="inline text-zinc-500 dark:text-zinc-400">Last successful check: </dt>
+              <dd className="inline">{formatRelative(monitor.lastSuccessfulCheckAt ?? monitor.lastCheckedAt)}</dd>
             </div>
             <div>
               <dt className="inline text-zinc-500 dark:text-zinc-400">Next check: </dt>
               <dd className="inline">{monitor.checkFrequency === 'manual' ? 'manual only' : formatRelative(monitor.nextCheckAt)}</dd>
             </div>
+            <div>
+              <dt className="inline text-zinc-500 dark:text-zinc-400">Last fetch duration: </dt>
+              <dd className="inline">{formatDurationMs(monitor.lastFetchDurationMs)}</dd>
+            </div>
+            <div>
+              <dt className="inline text-zinc-500 dark:text-zinc-400">Consecutive failures: </dt>
+              <dd className="inline">{monitor.failureCount}</dd>
+            </div>
+            {monitor.latestExtractedValue && (
+              <div>
+                <dt className="inline text-zinc-500 dark:text-zinc-400">Latest value: </dt>
+                <dd className="inline">{monitor.latestExtractedValue}</dd>
+              </div>
+            )}
           </dl>
           {latestFacts.length > 0 && (
             <>
@@ -268,9 +290,16 @@ export default function MonitorDetail() {
           Detected changes
         </h2>
         {changes.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            No changes detected yet. Run “Check now” after the page changes.
-          </p>
+          <EmptyState
+            title="No changes yet"
+            message="What happened: this monitor has not recorded a section change. Why it matters: alerts only appear after a check finds a meaningful, intent-matched difference. Next: mutate a lab page or wait for the live page to change, then run Check now."
+            action={
+              <Button variant="primary" onClick={() => runAction('check')} busy={busyAction === 'check'}>
+                <RefreshCw className="h-4 w-4" aria-hidden />
+                Check now
+              </Button>
+            }
+          />
         ) : (
           <ul className="space-y-3">
             {changes.map((c) => (
@@ -369,7 +398,21 @@ export default function MonitorDetail() {
           )}
         </div>
         <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {snapshots.map((s) => (
+          {snapshots.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                title="No snapshots yet"
+                message="What happened: PagePulse has not stored a successful or failed fetch for this monitor. Why it matters: version history and evidence comparison require at least one snapshot. Next: run Check now to capture the current page."
+                action={
+                  <Button variant="primary" onClick={() => runAction('check')} busy={busyAction === 'check'}>
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                    Check now
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            snapshots.map((s) => (
             <div key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               <input
                 type="checkbox"
@@ -401,7 +444,8 @@ export default function MonitorDetail() {
                 {s.contentHash ? s.contentHash.slice(0, 8) : '—'}
               </span>
             </div>
-          ))}
+          ))
+          )}
         </Card>
       </section>
 

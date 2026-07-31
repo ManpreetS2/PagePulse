@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS monitors (
   lastCheckedAt TEXT,
   nextCheckAt TEXT,
   lastError TEXT,
+  lastFetchDurationMs INTEGER,
+  lastCheckSummary TEXT NOT NULL DEFAULT 'never',
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -120,7 +122,20 @@ export function getDb(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  migrateSchema(db);
   return db;
+}
+
+/** Additive migrations for existing local databases (safe / idempotent). */
+function migrateSchema(database: Database.Database): void {
+  const columns = database.prepare('PRAGMA table_info(monitors)').all() as Array<{ name: string }>;
+  const names = new Set(columns.map((c) => c.name));
+  if (!names.has('lastFetchDurationMs')) {
+    database.exec('ALTER TABLE monitors ADD COLUMN lastFetchDurationMs INTEGER');
+  }
+  if (!names.has('lastCheckSummary')) {
+    database.exec("ALTER TABLE monitors ADD COLUMN lastCheckSummary TEXT NOT NULL DEFAULT 'never'");
+  }
 }
 
 /** Close and forget the current connection (used by tests). */

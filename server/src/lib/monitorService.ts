@@ -128,6 +128,7 @@ export async function createMonitor(input: CreateMonitorInput): Promise<MonitorR
       computeNextCheck(input.checkFrequency)
     );
   const monitorId = Number(result.lastInsertRowid);
+  db.prepare("UPDATE monitors SET lastCheckSummary = 'baseline', lastFetchDurationMs = ? WHERE id = ?").run(0, monitorId);
 
   db.prepare(
     `INSERT INTO snapshots (monitorId, retrievalTime, pageTitle, finalUrl, sectionHeading, cleanedSectionText,

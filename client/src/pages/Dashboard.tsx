@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity, Bell, CheckSquare, Eye, FlaskConical, MonitorX, Pause, Play, Plus,
-  RefreshCw, ThumbsDown, Trash2, Zap
+  RefreshCw, Sparkles, ThumbsDown, Trash2, Zap
 } from 'lucide-react';
 import { del, get, post } from '../lib/api';
 import type { Monitor, Stats } from '../lib/types';
 import { FREQUENCY_LABELS, formatRelative, hostname } from '../lib/format';
-import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, PageSpinner, StatusBadge } from '../components/ui';
+import { formatDurationMs } from '../lib/monitorHealth';
+import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, HealthBadge, PageSpinner, StatusBadge } from '../components/ui';
 
 function StatCard({ icon, label, value, tone = '' }: { icon: React.ReactNode; label: string; value: number; tone?: string }) {
   return (
@@ -96,13 +97,22 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Your monitors at a glance.</p>
         </div>
-        <Link
-          to="/monitors/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-zinc-950 dark:hover:bg-sky-400"
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          New monitor
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/demo"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200 dark:hover:bg-sky-900"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            Guided Demo
+          </Link>
+          <Link
+            to="/monitors/new"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-zinc-950 dark:hover:bg-sky-400"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            New monitor
+          </Link>
+        </div>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
@@ -128,9 +138,13 @@ export default function Dashboard() {
         <EmptyState
           icon={<Activity className="h-8 w-8" aria-hidden />}
           title="No monitors yet"
-          message="Create your first monitor from any public webpage, or load the sample monitors that point at the built-in Evaluation Lab pages — perfect for trying the full workflow safely."
+          message="What happened: you have not created a monitor. Why it matters: PagePulse needs a URL and instruction before it can watch for meaningful changes. Next: start the Guided Demo on a fictional GPA page, create a monitor, or load sample lab monitors."
           action={
             <>
+              <Button variant="primary" onClick={() => navigate('/demo')}>
+                <Sparkles className="h-4 w-4" aria-hidden />
+                Start Guided Demo
+              </Button>
               <Button variant="primary" onClick={() => navigate('/monitors/new')}>
                 <Plus className="h-4 w-4" aria-hidden />
                 Create a monitor
@@ -143,6 +157,18 @@ export default function Dashboard() {
           }
         />
       ) : (
+        <>
+          {monitors.every((m) => m.checkFrequency === 'manual') && (
+            <EmptyState
+              title="No scheduled monitors"
+              message="What happened: every monitor is set to manual-only checks. Why it matters: automatic polling will not run until a frequency is chosen. Next: edit a monitor and pick hourly/daily, or keep using Check now."
+              action={
+                <Button variant="primary" onClick={() => navigate(`/monitors/${monitors[0]!.id}`)}>
+                  Open a monitor to schedule
+                </Button>
+              }
+            />
+          )}
         <ul className="space-y-3">
           {monitors.map((m) => (
             <li key={m.id}>
@@ -153,13 +179,20 @@ export default function Dashboard() {
                       <Link to={`/monitors/${m.id}`} className="truncate text-base font-semibold hover:text-sky-700 hover:underline dark:hover:text-sky-400">
                         {m.name}
                       </Link>
-                      <StatusBadge status={m.status} />
+                      {m.health ? (
+                        <HealthBadge label={m.health.label} displayStatus={m.health.displayStatus} />
+                      ) : (
+                        <StatusBadge status={m.status} />
+                      )}
                       {m.unreadCount > 0 && (
                         <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
                           {m.unreadCount} unread
                         </span>
                       )}
                     </div>
+                    {m.health?.description && (
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{m.health.description}</p>
+                    )}
                     <p className="mt-0.5 truncate text-sm text-zinc-500 dark:text-zinc-400">
                       {hostname(m.url)} · “{m.userIntent}”
                     </p>
@@ -174,15 +207,23 @@ export default function Dashboard() {
                     <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                       <div>
                         <dt className="inline font-medium">Section: </dt>
-                        <dd className="inline">{m.selectedSectionHeading || '—'}</dd>
+                        <dd className="inline">{m.monitoredSection || m.selectedSectionHeading || '—'}</dd>
                       </div>
                       <div>
-                        <dt className="inline font-medium">Last check: </dt>
-                        <dd className="inline">{formatRelative(m.lastCheckedAt)}</dd>
+                        <dt className="inline font-medium">Last successful check: </dt>
+                        <dd className="inline">{formatRelative(m.lastSuccessfulCheckAt ?? m.lastCheckedAt)}</dd>
                       </div>
                       <div>
                         <dt className="inline font-medium">Next check: </dt>
                         <dd className="inline">{m.checkFrequency === 'manual' ? 'manual only' : formatRelative(m.nextCheckAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline font-medium">Fetch duration: </dt>
+                        <dd className="inline">{formatDurationMs(m.lastFetchDurationMs)}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline font-medium">Failures: </dt>
+                        <dd className="inline">{m.failureCount}</dd>
                       </div>
                       <div>
                         <dt className="inline font-medium">Frequency: </dt>
@@ -202,26 +243,26 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                    <Button onClick={() => runAction(m, 'check')} busy={busyId === m.id && busyAction === 'check'} title="Fetch the page and analyze it now">
+                    <Button className="min-h-10" onClick={() => runAction(m, 'check')} busy={busyId === m.id && busyAction === 'check'} title="Fetch the page and analyze it now">
                       <RefreshCw className="h-4 w-4" aria-hidden />
                       Check now
                     </Button>
-                    <Button variant="ghost" onClick={() => navigate(`/monitors/${m.id}`)} title="View monitor details and versions">
+                    <Button className="min-h-10" variant="ghost" onClick={() => navigate(`/monitors/${m.id}`)} title="View monitor details and versions">
                       <Eye className="h-4 w-4" aria-hidden />
                       View
                     </Button>
                     {m.status === 'paused' ? (
-                      <Button variant="ghost" onClick={() => runAction(m, 'resume')} busy={busyId === m.id && busyAction === 'resume'}>
+                      <Button className="min-h-10" variant="ghost" onClick={() => runAction(m, 'resume')} busy={busyId === m.id && busyAction === 'resume'}>
                         <Play className="h-4 w-4" aria-hidden />
                         Resume
                       </Button>
                     ) : (
-                      <Button variant="ghost" onClick={() => runAction(m, 'pause')} busy={busyId === m.id && busyAction === 'pause'}>
+                      <Button className="min-h-10" variant="ghost" onClick={() => runAction(m, 'pause')} busy={busyId === m.id && busyAction === 'pause'}>
                         <Pause className="h-4 w-4" aria-hidden />
                         Pause
                       </Button>
                     )}
-                    <Button variant="ghost" onClick={() => setDeleteTarget(m)} title="Delete this monitor" className="text-red-600 dark:text-red-400">
+                    <Button className="min-h-10 text-red-600 dark:text-red-400" variant="ghost" onClick={() => setDeleteTarget(m)} title="Delete this monitor">
                       <Trash2 className="h-4 w-4" aria-hidden />
                       <span className="sr-only">Delete {m.name}</span>
                     </Button>
@@ -231,6 +272,7 @@ export default function Dashboard() {
             </li>
           ))}
         </ul>
+        </>
       )}
 
       <ConfirmDialog

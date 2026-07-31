@@ -103,6 +103,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
   }
   runningMonitors.add(monitorId);
   const wasPaused = monitor.status === 'paused';
+  const startedAt = Date.now();
   try {
     updateMonitor(monitorId, { status: 'checking' });
 
@@ -116,6 +117,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
 
     const now = new Date().toISOString();
     const nextCheckAt = computeNextCheck(monitor.checkFrequency);
+    const durationMs = Date.now() - startedAt;
 
     if (fetchResult.status !== 'ok') {
       const failureCount = monitor.failureCount + 1;
@@ -140,7 +142,9 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         failureCount,
         lastCheckedAt: now,
         nextCheckAt: shouldPause ? null : nextCheckAt,
-        lastError: fetchResult.details
+        lastError: fetchResult.details,
+        lastFetchDurationMs: durationMs,
+        lastCheckSummary: isBlocked ? 'blocked' : 'failed'
       });
       if (failureCount === 1 || shouldPause) {
         createNotification(
@@ -167,7 +171,15 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
     });
 
     if (!match || cleaned.sections.length === 0) {
-      updateMonitor(monitorId, { status: 'uncertain', failureCount: 0, lastCheckedAt: now, nextCheckAt, lastError: 'No readable sections were found on the page.' });
+      updateMonitor(monitorId, {
+        status: 'uncertain',
+        failureCount: 0,
+        lastCheckedAt: now,
+        nextCheckAt,
+        lastError: 'No readable sections were found on the page.',
+        lastFetchDurationMs: durationMs,
+        lastCheckSummary: 'uncertain'
+      });
       const snapshotId = saveSnapshot({
         monitorId,
         pageTitle: cleaned.title,
@@ -209,7 +221,9 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         failureCount: 0,
         lastCheckedAt: now,
         nextCheckAt,
-        lastError: `Could not confidently find the monitored section (best guess: “${match.section.heading}”, confidence ${(match.confidence * 100).toFixed(0)}%).`
+        lastError: `Could not confidently find the monitored section (best guess: “${match.section.heading}”, confidence ${(match.confidence * 100).toFixed(0)}%).`,
+        lastFetchDurationMs: durationMs,
+        lastCheckSummary: 'uncertain'
       });
       createNotification(
         monitorId,
@@ -229,14 +243,24 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         nextCheckAt,
         lastError: null,
         selectedSectionHeading: match.section.heading,
-        selectedSectionText: sectionText
+        selectedSectionText: sectionText,
+        lastFetchDurationMs: durationMs,
+        lastCheckSummary: 'baseline'
       });
       return { status: 'healthy', snapshotId, changes: [], alertsCreated: 0, message: 'Baseline saved.' };
     }
 
     // ---- Nothing changed at all ----
     if (previous.contentHash === contentHash) {
-      updateMonitor(monitorId, { status: wasPaused ? 'paused' : 'healthy', failureCount: 0, lastCheckedAt: now, nextCheckAt, lastError: null });
+      updateMonitor(monitorId, {
+        status: wasPaused ? 'paused' : 'healthy',
+        failureCount: 0,
+        lastCheckedAt: now,
+        nextCheckAt,
+        lastError: null,
+        lastFetchDurationMs: durationMs,
+        lastCheckSummary: 'no_change'
+      });
       return { status: 'healthy', snapshotId, changes: [], alertsCreated: 0, message: 'No changes detected.' };
     }
 
@@ -306,7 +330,9 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
       lastError: null,
       // Track drift: the newly matched section becomes the reference.
       selectedSectionHeading: match.section.heading,
-      selectedSectionText: sectionText
+      selectedSectionText: sectionText,
+      lastFetchDurationMs: durationMs,
+      lastCheckSummary: meaningfulMatched ? 'alert' : detected.length > 0 ? 'irrelevant_change' : 'no_change'
     });
 
     return {

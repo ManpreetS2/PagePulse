@@ -81,11 +81,20 @@ export default function Alerts() {
         <EmptyState
           icon={<BellOff className="h-8 w-8" aria-hidden />}
           title={filter === 'unread' ? 'No unread alerts' : 'No alerts yet'}
-          message="PagePulse only alerts you when the monitored section changed meaningfully AND the change matches your instruction. Try the Evaluation Lab to see an alert being born."
+          message={
+            filter === 'unread'
+              ? 'What happened: every alert has already been marked read. Why it matters: unread alerts are the ones that still need review. Next: switch to All, or wait for the next meaningful change.'
+              : 'What happened: no intent-matched meaningful changes have been recorded yet. Why it matters: PagePulse stays quiet on rewording and unrelated edits. Next: run the Guided Demo or Evaluation Lab to generate a real alert.'
+          }
           action={
-            <Link to="/lab" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-zinc-950">
-              Open the Evaluation Lab
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link to="/demo" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-zinc-950">
+                Start Guided Demo
+              </Link>
+              <Link to="/lab" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+                Open Evaluation Lab
+              </Link>
+            </div>
           }
         />
       ) : (

@@ -8,6 +8,7 @@ import MonitorDetail from './pages/MonitorDetail';
 import CompareVersions from './pages/CompareVersions';
 import Alerts from './pages/Alerts';
 import EvalLab from './pages/EvalLab';
+import GuidedDemo from './pages/GuidedDemo';
 import SettingsPage from './pages/Settings';
 import NotFound from './pages/NotFound';
 
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/demo" element={<GuidedDemo />} />
           <Route path="/monitors/new" element={<CreateMonitor />} />
           <Route path="/monitors/:id" element={<MonitorDetail />} />
           <Route path="/monitors/:id/compare" element={<CompareVersions />} />

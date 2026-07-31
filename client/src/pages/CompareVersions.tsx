@@ -119,15 +119,79 @@ export default function CompareVersions() {
                     <span className="font-medium">{c.newValue || '—'}</span>
                   </p>
                 )}
-                <EvidenceCompare oldEvidence={c.oldEvidence} newEvidence={c.newEvidence} oldValue={c.oldValue} newValue={c.newValue} />
+                <EvidenceCompare
+                  oldEvidence={c.oldEvidence}
+                  newEvidence={c.newEvidence}
+                  oldValue={c.oldValue}
+                  newValue={c.newValue}
+                  oldMeta={formatDateTime(data.oldSnapshot.retrievalTime)}
+                  newMeta={formatDateTime(data.newSnapshot.retrievalTime)}
+                />
+                <div className="flex flex-wrap gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+                  <span>Meaningful-change confidence: {percent(c.meaning.confidence)}</span>
+                  <span>Intent-match confidence: {percent(c.intentResult.confidence)}</span>
+                </div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                  {c.meaning.explanation} {c.intentResult.reason}
+                  <span className="font-medium">Intent: </span>
+                  {c.intentResult.reason}
                 </p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">{c.meaning.explanation}</p>
               </Card>
             ))}
           </div>
         )}
       </section>
+
+      {data.factSummary && (
+        <section aria-labelledby="fact-summary" className="grid gap-3 lg:grid-cols-3">
+          <Card className="p-4">
+            <h2 id="fact-summary" className="text-sm font-semibold">
+              Confirmed fact changes
+            </h2>
+            {data.factSummary.confirmedChanged.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500">No typed fact values changed between these versions.</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {data.factSummary.confirmedChanged.map((f, i) => (
+                  <li key={i}>
+                    <span className="font-medium capitalize">{f.type}</span>: {f.oldValue} → {f.newValue}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold">Unchanged facts</h2>
+            {data.factSummary.unchanged.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500">No overlapping extracted facts.</p>
+            ) : (
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {data.factSummary.unchanged.slice(0, 12).map((f, i) => (
+                  <li key={i} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
+                    {f.context ? `${f.context}: ${f.value}` : `${f.type}: ${f.value}`}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold">Ignored unrelated changes</h2>
+            {data.factSummary.ignoredUnrelated.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-500">Nothing was filtered as unrelated or not meaningful.</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {data.factSummary.ignoredUnrelated.slice(0, 6).map((f, i) => (
+                  <li key={i} className="rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
+                    <div className="font-medium">{CATEGORY_LABELS[f.category] ?? f.category}</div>
+                    <div className="text-zinc-600 dark:text-zinc-300">{f.summary}</div>
+                    <div className="text-xs text-zinc-500">{f.reason}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

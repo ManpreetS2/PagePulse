@@ -1,9 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Activity, Bell, FlaskConical, LayoutDashboard, Menu, Moon, Plus, Settings, Sun, X } from 'lucide-react';
+import { Activity, Bell, FlaskConical, LayoutDashboard, Menu, Moon, Plus, Settings, Sparkles, Sun, X } from 'lucide-react';
 import { get } from '../lib/api';
 
 type Theme = 'light' | 'dark' | 'system';
+
+function readStoredTheme(): Theme {
+  try {
+    return (localStorage.getItem('pagepulse-theme') as Theme) || 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+function writeStoredTheme(theme: Theme): void {
+  try {
+    localStorage.setItem('pagepulse-theme', theme);
+  } catch {
+    /* private mode / unavailable storage — theme still applies for this session */
+  }
+}
 
 function applyTheme(theme: Theme) {
   const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -11,9 +27,9 @@ function applyTheme(theme: Theme) {
 }
 
 export function useTheme(): [Theme, (t: Theme) => void] {
-  const [theme, setThemeState] = useState<Theme>(() => (localStorage.getItem('pagepulse-theme') as Theme) || 'system');
+  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme());
   const setTheme = useCallback((t: Theme) => {
-    localStorage.setItem('pagepulse-theme', t);
+    writeStoredTheme(t);
     setThemeState(t);
     applyTheme(t);
   }, []);
@@ -23,7 +39,9 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 
 function ThemeToggle() {
   const [theme, setTheme] = useTheme();
-  const isDark = document.documentElement.classList.contains('dark');
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   return (
     <button
       type="button"
@@ -39,6 +57,7 @@ function ThemeToggle() {
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/demo', label: 'Guided Demo', icon: Sparkles },
   { to: '/alerts', label: 'Alerts', icon: Bell },
   { to: '/lab', label: 'Evaluation Lab', icon: FlaskConical },
   { to: '/settings', label: 'Settings', icon: Settings }

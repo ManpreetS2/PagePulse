@@ -11,6 +11,7 @@ import monitorsRouter from './routes/monitors.js';
 import notificationsRouter from './routes/notifications.js';
 import labRouter from './routes/lab.js';
 import settingsRouter from './routes/settings.js';
+import demoRouter from './routes/demo.js';
 import { renderLabPage, LAB_PAGES } from './lab/pages.js';
 import { HttpError } from './routes/helpers.js';
 
@@ -63,8 +64,9 @@ export function createApp(): express.Express {
   app.use('/api', notificationsRouter);
   app.use('/api', labRouter);
   app.use('/api', settingsRouter);
+  app.use('/api', demoRouter);
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true });
+    res.json({ ok: true, version: '1.1.0' });
   });
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { message: 'Unknown API endpoint.' } });

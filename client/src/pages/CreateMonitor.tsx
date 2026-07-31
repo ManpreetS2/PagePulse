@@ -54,12 +54,25 @@ export default function CreateMonitor() {
       const result = await post<PreviewResult>('/api/preview', { url, userIntent: intentText });
       setPreview(result);
       if (result.fetch.status !== 'ok') {
-        setError(`This page cannot be monitored: ${result.fetch.details}`);
+        const detail = result.fetch.details || 'Unknown fetch problem.';
+        const guidance =
+          result.fetch.status === 'blocked'
+            ? ' What happened: the URL is private, unsupported, or blocked. Why it matters: PagePulse only fetches public http(s) HTML. Next: use a public page or an Evaluation Lab URL.'
+            : result.fetch.status === 'timeout'
+              ? ' What happened: the request timed out. Why it matters: slow or unreachable pages cannot be checked reliably. Next: retry later or choose a lighter page.'
+              : result.fetch.status === 'unsupported'
+                ? ' What happened: the response was not HTML/text. Why it matters: PDFs and binary downloads are not supported. Next: point the monitor at an HTML page.'
+                : result.fetch.status === 'network_error'
+                  ? ' What happened: DNS or network failed. Why it matters: PagePulse could not reach the host. Next: check the hostname spelling or try a lab page.'
+                  : ' Why it matters: without a successful fetch, PagePulse cannot create a baseline. Next: fix the URL or try an Evaluation Lab page.';
+        setError(`This page cannot be monitored (${result.fetch.status}): ${detail}.${guidance}`);
         setStep(1);
         return;
       }
       if (result.page.sections.length === 0) {
-        setError('This page was fetched, but no readable text sections were found. PagePulse supports server-rendered pages with readable text.');
+        setError(
+          'What happened: the page was fetched but almost no readable text was found. Why it matters: JavaScript-heavy shells without server-rendered content leave nothing to monitor. Next: use a server-rendered page or an Evaluation Lab page.'
+        );
         setStep(1);
         return;
       }

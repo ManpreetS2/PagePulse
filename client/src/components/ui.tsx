@@ -257,27 +257,71 @@ export function EvidenceCompare({
   oldEvidence,
   newEvidence,
   oldValue,
-  newValue
+  newValue,
+  oldLabel = 'Before',
+  newLabel = 'After',
+  oldMeta,
+  newMeta
 }: {
   oldEvidence: string;
   newEvidence: string;
   oldValue: string;
   newValue: string;
+  oldLabel?: string;
+  newLabel?: string;
+  oldMeta?: string;
+  newMeta?: string;
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/60">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Before</div>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
+          <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{oldLabel}</div>
+          {oldMeta && <div className="text-[11px] text-zinc-400 dark:text-zinc-500">{oldMeta}</div>}
+        </div>
         <p className="text-sm leading-relaxed">
           <HighlightedEvidence text={oldEvidence} value={oldValue} />
         </p>
       </div>
       <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-3 dark:border-sky-900 dark:bg-sky-950/40">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">After</div>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
+          <div className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">{newLabel}</div>
+          {newMeta && <div className="text-[11px] text-sky-500/80 dark:text-sky-400/80">{newMeta}</div>}
+        </div>
         <p className="text-sm leading-relaxed">
           <HighlightedEvidence text={newEvidence} value={newValue} />
         </p>
       </div>
     </div>
+  );
+}
+
+/** Health badge with icon + text (not color alone). */
+export function HealthBadge({
+  label,
+  displayStatus
+}: {
+  label: string;
+  displayStatus: string;
+}) {
+  const key = (displayStatus in STATUS_STYLES ? displayStatus : 'healthy') as MonitorStatus;
+  const mapped: Record<string, MonitorStatus> = {
+    healthy: 'healthy',
+    due_soon: 'checking',
+    checking: 'checking',
+    meaningful_change: 'changed',
+    no_relevant_change: 'healthy',
+    blocked: 'blocked',
+    failed: 'failed',
+    uncertain: 'uncertain',
+    manual_only: 'paused',
+    paused: 'paused'
+  };
+  const style = STATUS_STYLES[mapped[displayStatus] ?? key] ?? STATUS_STYLES.healthy;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${style.classes}`}>
+      {style.icon}
+      <span>{label}</span>
+    </span>
   );
 }

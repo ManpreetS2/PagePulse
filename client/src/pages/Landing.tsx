@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Activity, ArrowRight, Eye, FileSearch, FlaskConical, Moon, ScanSearch, ShieldCheck, Sun, Target } from 'lucide-react';
+import { Activity, ArrowRight, Eye, FileSearch, FlaskConical, Moon, ScanSearch, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react';
 import { useTheme } from '../components/Layout';
 
 const FEATURES = [
@@ -72,14 +72,21 @@ export default function Landing() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             to="/monitors/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-zinc-950 dark:hover:bg-sky-400"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:bg-sky-500 dark:text-zinc-950 dark:hover:bg-sky-400"
           >
             Create a monitor
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           <Link
+            to="/demo"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-sky-300 bg-sky-50 px-5 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200 dark:hover:bg-sky-900"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            Start Guided Demo
+          </Link>
+          <Link
             to="/lab"
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             <FlaskConical className="h-4 w-4" aria-hidden />
             Try the evaluation lab

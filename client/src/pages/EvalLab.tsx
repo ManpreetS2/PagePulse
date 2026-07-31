@@ -5,7 +5,7 @@ import { CheckCircle2, ExternalLink, FlaskConical, Play, Plus, RotateCcw, XCircl
 import { get, post } from '../lib/api';
 import type { EvalScenario, LabPage, SuiteReport } from '../lib/types';
 import { formatDateTime, percent } from '../lib/format';
-import { Button, Card, ErrorBanner, PageSpinner } from '../components/ui';
+import { Button, Card, EmptyState, ErrorBanner, PageSpinner } from '../components/ui';
 
 function MetricCard({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: string }) {
   return (
@@ -212,10 +212,17 @@ export default function EvalLab() {
           Evaluation results
         </h2>
         {!report || !metrics ? (
-          <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            No evaluation has been run yet. Click “Run complete evaluation suite” to execute all {scenarios.length} deterministic
-            scenarios and produce a repeatable report.
-          </p>
+          <EmptyState
+            icon={<FlaskConical className="h-8 w-8" aria-hidden />}
+            title="No Evaluation Lab results yet"
+            message={`What happened: the deterministic suite has not been run in this database. Why it matters: the lab is how you prove recall, false-alert rate, and evidence accuracy on controlled pages. Next: run all ${scenarios.length || 'available'} scenarios in the complete evaluation suite.`}
+            action={
+              <Button variant="primary" onClick={runSuiteNow} busy={running}>
+                <Play className="h-4 w-4" aria-hidden />
+                Run complete evaluation suite
+              </Button>
+            }
+          />
         ) : (
           <div className="space-y-4">
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
