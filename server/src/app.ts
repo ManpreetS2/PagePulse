@@ -16,7 +16,7 @@ import { renderLabPage, LAB_PAGES } from './lab/pages.js';
 import { HttpError } from './routes/helpers.js';
 
 /** Minimal fixed-window rate limiter (per IP) — no external service needed. */
-function rateLimiter(maxPerMinute: number) {
+export function rateLimiter(maxPerMinute: number) {
   const hits = new Map<string, { count: number; windowStart: number }>();
   return (req: Request, res: Response, next: NextFunction) => {
     const key = req.ip ?? 'unknown';
@@ -36,10 +36,36 @@ function rateLimiter(maxPerMinute: number) {
   };
 }
 
+/** Endpoints that trigger network I/O or heavy analysis — tighter budget. */
+export function isExpensiveApiRequest(req: Request): boolean {
+  if (req.method !== 'POST') return false;
+  const path = req.path;
+  return (
+    path === '/preview' ||
+    path === '/evaluation/run' ||
+    path === '/demo/start' ||
+    path === '/demo/continue' ||
+    path === '/samples/load' ||
+    /^\/monitors\/\d+\/check$/.test(path)
+  );
+}
+
 export function createApp(): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', false);
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    // SPA needs the inline theme boot script + Vite assets; keep object/base locked down.
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'"
+    );
+    next();
+  });
   app.use(express.json({ limit: '200kb' }));
 
   /* ---- Evaluation Lab pages (plain HTML, fetched by the monitor pipeline) ---- */
@@ -59,15 +85,22 @@ export function createApp(): express.Express {
   });
 
   /* ---- API ---- */
-  app.use('/api', rateLimiter(240));
+  // Health stays outside rate limits so probes remain usable under load.
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, version: '1.1.1' });
+  });
+
+  const generalLimiter = rateLimiter(240);
+  const expensiveLimiter = rateLimiter(40);
+  app.use('/api', (req, res, next) => {
+    if (isExpensiveApiRequest(req)) return expensiveLimiter(req, res, next);
+    return generalLimiter(req, res, next);
+  });
   app.use('/api', monitorsRouter);
   app.use('/api', notificationsRouter);
   app.use('/api', labRouter);
   app.use('/api', settingsRouter);
   app.use('/api', demoRouter);
-  app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, version: '1.1.0' });
-  });
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { message: 'Unknown API endpoint.' } });
   });

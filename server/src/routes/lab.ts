@@ -56,7 +56,9 @@ router.post(
   '/evaluation/run',
   asyncHandler(async (req, res) => {
     if (isSuiteRunning()) throw new HttpError(409, 'An evaluation suite is already running. Wait for it to finish.');
-    const body = z.object({ scenarioIds: z.array(z.string()).optional() }).parse(req.body ?? {});
+    const body = z
+      .object({ scenarioIds: z.array(z.string().trim().min(1).max(80)).max(50).optional() })
+      .parse(req.body ?? {});
     const report = await runSuite(body.scenarioIds);
     res.json(report);
   })

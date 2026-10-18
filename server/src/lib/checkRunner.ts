@@ -18,8 +18,26 @@ import { getComparisonProvider } from './meaning.js';
 import { matchIntent, parseIntent } from './intent.js';
 import { sha256 } from './textUtils.js';
 import { createNotification } from './notify.js';
+import { buildQuietReport, type QuietReport } from './quietReport.js';
+
+export type { QuietReport, QuietReportItem } from './quietReport.js';
 
 const runningMonitors = new Set<number>();
+
+/** True while runCheck is in flight for this monitor in the current process. */
+export function isMonitorCheckRunning(monitorId: number): boolean {
+  return runningMonitors.has(monitorId);
+}
+
+/** Test-only: mark a monitor as running so recovery can be asserted against it. */
+export function markMonitorCheckRunningForTests(monitorId: number): void {
+  runningMonitors.add(monitorId);
+}
+
+/** Test-only: clear the in-memory running flag. */
+export function clearMonitorCheckRunningForTests(monitorId: number): void {
+  runningMonitors.delete(monitorId);
+}
 
 export const FREQUENCY_MINUTES: Record<CheckFrequency, number | null> = {
   '15min': 15,
@@ -41,6 +59,23 @@ export interface CheckOutcome {
   changes: ChangeRow[];
   alertsCreated: number;
   message: string;
+  /** Present when the check found page changes but created no alerts. */
+  quietReport: QuietReport | null;
+}
+
+function emptyOutcome(
+  status: MonitorRow['status'],
+  message: string,
+  extras: Partial<Pick<CheckOutcome, 'snapshotId' | 'changes' | 'alertsCreated' | 'quietReport'>> = {}
+): CheckOutcome {
+  return {
+    status,
+    snapshotId: extras.snapshotId ?? null,
+    changes: extras.changes ?? [],
+    alertsCreated: extras.alertsCreated ?? 0,
+    message,
+    quietReport: extras.quietReport ?? null
+  };
 }
 
 function parseIntentJson(monitor: MonitorRow): ParsedIntent {
@@ -96,10 +131,10 @@ function updateMonitor(id: number, fields: Record<string, string | number | null
 export async function runCheck(monitorId: number): Promise<CheckOutcome> {
   const db = getDb();
   const monitor = db.prepare('SELECT * FROM monitors WHERE id = ?').get(monitorId) as MonitorRow | undefined;
-  if (!monitor) return { status: 'failed', snapshotId: null, changes: [], alertsCreated: 0, message: 'Monitor not found.' };
+  if (!monitor) return emptyOutcome('failed', 'Monitor not found.');
 
   if (runningMonitors.has(monitorId)) {
-    return { status: monitor.status, snapshotId: null, changes: [], alertsCreated: 0, message: 'A check is already running for this monitor.' };
+    return emptyOutcome(monitor.status, 'A check is already running for this monitor.');
   }
   runningMonitors.add(monitorId);
   const wasPaused = monitor.status === 'paused';
@@ -154,7 +189,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
           `${fetchResult.details}${shouldPause ? ` The monitor was paused after ${failureCount} consecutive failures. Resume it once the page is reachable.` : ''}`
         );
       }
-      return { status, snapshotId, changes: [], alertsCreated: 0, message: fetchResult.details };
+      return emptyOutcome(status, fetchResult.details, { snapshotId });
     }
 
     // ---- Clean + match section ----
@@ -194,7 +229,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         sectionMatchConfidence: 0
       });
       createNotification(monitorId, null, `Needs review: ${monitor.name}`, 'The page was fetched but PagePulse could not find readable sections to compare. Review the monitor.');
-      return { status: 'uncertain', snapshotId, changes: [], alertsCreated: 0, message: 'No readable sections found.' };
+      return emptyOutcome('uncertain', 'No readable sections found.', { snapshotId });
     }
 
     const sectionText = match.section.text;
@@ -231,7 +266,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         `Needs review: ${monitor.name}`,
         `PagePulse could not confidently locate the monitored section “${monitor.selectedSectionHeading}” on the page anymore (best candidate: “${match.section.heading}”, confidence ${(match.confidence * 100).toFixed(0)}%). Review the monitor and re-select the section if the page was reorganized.`
       );
-      return { status: 'uncertain', snapshotId, changes: [], alertsCreated: 0, message: 'Section match confidence too low; monitor marked uncertain.' };
+      return emptyOutcome('uncertain', 'Section match confidence too low; monitor marked uncertain.', { snapshotId });
     }
 
     // ---- First check ever (baseline just saved at creation) ----
@@ -247,7 +282,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         lastFetchDurationMs: durationMs,
         lastCheckSummary: 'baseline'
       });
-      return { status: 'healthy', snapshotId, changes: [], alertsCreated: 0, message: 'Baseline saved.' };
+      return emptyOutcome('healthy', 'Baseline saved.', { snapshotId });
     }
 
     // ---- Nothing changed at all ----
@@ -261,7 +296,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
         lastFetchDurationMs: durationMs,
         lastCheckSummary: 'no_change'
       });
-      return { status: 'healthy', snapshotId, changes: [], alertsCreated: 0, message: 'No changes detected.' };
+      return emptyOutcome('healthy', 'No changes detected.', { snapshotId });
     }
 
     // ---- Diff + meaning + intent ----
@@ -307,10 +342,10 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
       savedChanges.push(db.prepare('SELECT * FROM changes WHERE id = ?').get(changeId) as ChangeRow);
 
       if (qualifies) {
-        alertsCreated++;
         const key = `${change.category}|${change.oldValue}|${change.newValue}`;
         if (!notified.has(key)) {
           notified.add(key);
+          alertsCreated++;
           createNotification(
             monitorId,
             changeId,
@@ -322,6 +357,7 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
     }
 
     const meaningfulMatched = alertsCreated > 0;
+    const quietReport = meaningfulMatched ? null : buildQuietReport(savedChanges);
     updateMonitor(monitorId, {
       status: wasPaused ? 'paused' : meaningfulMatched ? 'changed' : 'healthy',
       failureCount: 0,
@@ -340,10 +376,11 @@ export async function runCheck(monitorId: number): Promise<CheckOutcome> {
       snapshotId,
       changes: savedChanges,
       alertsCreated,
+      quietReport,
       message: meaningfulMatched
         ? `${alertsCreated} meaningful change${alertsCreated === 1 ? '' : 's'} matched your instruction.`
-        : detected.length > 0
-          ? `${detected.length} change${detected.length === 1 ? '' : 's'} detected, but none were both meaningful and relevant to your instruction.`
+        : quietReport
+          ? quietReport.summary
           : 'No changes detected.'
     };
   } finally {

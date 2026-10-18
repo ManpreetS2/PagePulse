@@ -4,10 +4,10 @@ import {
   ArrowLeft, Clock, ExternalLink, GitCompareArrows, Pause, Pencil, Play, RefreshCw,
   ThumbsDown, ThumbsUp, Trash2, Zap
 } from 'lucide-react';
-import { del, get, patch, post } from '../lib/api';
-import type { Change, CheckFrequency, Monitor, Snapshot } from '../lib/types';
+import { ApiError, del, formatApiError, get, patch, post } from '../lib/api';
+import type { Change, CheckFrequency, CheckOutcome, Monitor, Snapshot } from '../lib/types';
 import { CATEGORY_LABELS, FIELD_LABELS, FREQUENCY_LABELS, TRIGGER_LABELS, formatDateTime, formatRelative, percent } from '../lib/format';
-import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, EvidenceCompare, HealthBadge, Modal, PageSpinner, StatusBadge } from '../components/ui';
+import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, EvidenceCompare, HealthBadge, Modal, PageSpinner, QuietReportPanel, StatusBadge } from '../components/ui';
 import { formatDurationMs } from '../lib/monitorHealth';
 
 interface MonitorDetailData extends Monitor {
@@ -58,13 +58,15 @@ export default function MonitorDetail() {
 
   const runAction = async (action: 'check' | 'pause' | 'resume' | 'delete') => {
     if (!monitor) return;
+    // Ignore double-clicks while a check (or other action) is already in flight.
+    if (busyAction) return;
     setBusyAction(action);
     setError('');
     try {
       if (action === 'check') {
         setStatusMessage('Checking the page now…');
-        const outcome = await post<{ message: string }>(`/api/monitors/${monitor.id}/check`);
-        setStatusMessage(outcome.message);
+        const outcome = await post<CheckOutcome>(`/api/monitors/${monitor.id}/check`);
+        setStatusMessage(outcome.quietReport?.summary || outcome.message);
       } else if (action === 'delete') {
         await del(`/api/monitors/${monitor.id}`);
         navigate('/dashboard');
@@ -75,7 +77,13 @@ export default function MonitorDetail() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Action failed.');
+      if (err instanceof ApiError && err.status === 409 && action === 'check') {
+        setStatusMessage(formatApiError(err));
+        setError('');
+      } else {
+        setError(formatApiError(err, 'Action failed.'));
+        if (action === 'check') setStatusMessage('');
+      }
     } finally {
       setBusyAction('');
     }
@@ -197,6 +205,10 @@ export default function MonitorDetail() {
           </Button>
         </div>
       </div>
+
+      {monitor.latestQuietReport && (
+        <QuietReportPanel report={monitor.latestQuietReport} />
+      )}
 
       {/* Info cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

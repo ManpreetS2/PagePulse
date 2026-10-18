@@ -10,7 +10,7 @@ import {
   Sparkles,
   Bell
 } from 'lucide-react';
-import { get, post } from '../lib/api';
+import { formatApiError, get, post } from '../lib/api';
 import type { GuidedDemoResult } from '../lib/types';
 import { CATEGORY_LABELS } from '../lib/format';
 import { Button, Card, ConfidenceMeter, EmptyState, ErrorBanner, EvidenceCompare, PageSpinner } from '../components/ui';
@@ -43,6 +43,7 @@ export default function GuidedDemo() {
   }, [load]);
 
   const run = async (action: 'start' | 'continue' | 'reset') => {
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
@@ -54,7 +55,7 @@ export default function GuidedDemo() {
             : await post<GuidedDemoResult>('/api/demo/reset');
       setDemo(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Demo action failed.');
+      setError(formatApiError(err, 'Demo action failed.'));
     } finally {
       setBusy(false);
     }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CheckCircle2, ExternalLink, FlaskConical, Play, Plus, RotateCcw, XCircle } from 'lucide-react';
-import { get, post } from '../lib/api';
+import { formatApiError, get, post } from '../lib/api';
 import type { EvalScenario, LabPage, SuiteReport } from '../lib/types';
 import { formatDateTime, percent } from '../lib/format';
 import { Button, Card, EmptyState, ErrorBanner, PageSpinner } from '../components/ui';
@@ -56,7 +56,7 @@ export default function EvalLab() {
       await post(`/api/lab/pages/${page.slug}/mutations`, { mutations: next });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not apply the mutation.');
+      setError(formatApiError(err, 'Could not apply the mutation.'));
     } finally {
       setBusySlug('');
     }
@@ -70,13 +70,14 @@ export default function EvalLab() {
       setStatusMessage(`“${page.name}” reset to baseline.`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reset the page.');
+      setError(formatApiError(err, 'Could not reset the page.'));
     } finally {
       setBusySlug('');
     }
   };
 
   const runSuiteNow = async () => {
+    if (running) return;
     setRunning(true);
     setError('');
     setStatusMessage('Running the complete evaluation suite — every scenario creates a real monitor, mutates the page, and runs the full pipeline…');
@@ -86,7 +87,7 @@ export default function EvalLab() {
       setStatusMessage(`Suite finished: ${r.metrics.passed}/${r.metrics.totalScenarios} scenarios passed.`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The evaluation run failed.');
+      setError(formatApiError(err, 'The evaluation run failed.'));
       setStatusMessage('');
     } finally {
       setRunning(false);

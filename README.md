@@ -2,7 +2,7 @@
 
 PagePulse is an evidence-first monitoring platform that tracks meaningful changes on public webpages. Users describe what information matters, and PagePulse filters out harmless webpage noise while showing the exact evidence behind relevant alerts.
 
-**Current release: v1.1** — includes a Guided Demo that walks through baseline → rewording → unrelated change → GPA alert using the real monitoring pipeline on fictional Evaluation Lab pages.
+**Current release: v1.1.1** — Guided Demo plus DNS-pinned SSRF fetching, stuck-check recovery, security headers, and evidence-backed “Why no alert?” quiet reports when noise is filtered.
 
 ## Overview
 
@@ -36,6 +36,7 @@ Important information lives on public pages that change silently: admission requ
 - Monitor health statuses: Healthy, Due soon, Checking, Meaningful change detected, No relevant change, Blocked, Failed, Uncertain, Manual only
 - Confidence scores and honest uncertainty states
 - Old-versus-new evidence with highlighted values, confirmed/unchanged/ignored fact summaries
+- **Quiet reports** — when content shifted but no alert fired, the monitor shows why (cosmetic vs off-intent) with verbatim evidence
 - Version history and any-two-snapshot comparison
 - In-app alerts with useful / irrelevant feedback (per-monitor threshold adjustment only)
 - Scheduled and manual checks with per-domain rate limiting and retries
@@ -177,10 +178,12 @@ In production, Express serves the built client from `client/dist`.
 ## Secure Webpage Fetching
 
 - Accepts only `http:` / `https:` URLs; rejects credentials embedded in URLs
-- Blocks localhost, private, link-local, and internal destinations after DNS resolution
+- Blocks localhost, private, link-local, and internal destinations after DNS resolution (including IPv4-mapped IPv6 forms)
+- **Pins each connection to the validated addresses** so DNS cannot rebind between resolve and connect
 - Re-validates every redirect hop (limited redirect count)
 - Timeouts, response size caps, and content-type filtering
 - Clear user agent; no cookies; page scripts are not executed
+- Defensive HTTP security headers (CSP, frame denial, nosniff, referrer policy)
 - Lab pages on the app’s own origin are the only sanctioned loopback exception
 
 ## Local Development
@@ -188,11 +191,13 @@ In production, Express serves the built client from `client/dist`.
 Requires **Node.js 20+**. No Docker, external database, Redis, or API key is required.
 
 ```bash
-npm install          # installs client + server workspaces from the lockfile
+npm ci               # clean install from the lockfile (no legacy-peer-deps)
 npm run db:init      # create a clean SQLite database under ./data
 npm run db:seed      # reset Evaluation Lab pages to baseline (optional)
 npm run dev          # API on :3000, Vite client on :5173
 ```
+
+> Vitest 4 peers are satisfied by `vite@^6.4.4` on both workspaces — there is no `.npmrc legacy-peer-deps`. Prefer `npm ci`. Regenerating the lockfile from scratch on npm 10 can hit an arborist `edgesOut` bug; use npm ≥ 11 for lockfile regeneration (see `docs/audit/findings-2026-10-18.md`). `npm audit` is clean after the v1.1.1 dependency hardening.
 
 Useful scripts:
 

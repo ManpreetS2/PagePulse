@@ -5,6 +5,22 @@ export class ApiError extends Error {
   }
 }
 
+/** Map status codes to clear, actionable copy when the server message is generic. */
+export function formatApiError(err: unknown, fallback = 'Request failed.'): string {
+  if (!(err instanceof ApiError)) {
+    return err instanceof Error ? err.message : fallback;
+  }
+  if (err.status === 429) {
+    return err.message.includes('Too many')
+      ? err.message
+      : 'Too many requests. Wait a moment and try again.';
+  }
+  if (err.status === 409) {
+    return err.message || 'That action is already in progress. Wait for it to finish.';
+  }
+  return err.message || fallback;
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
@@ -22,10 +38,16 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     /* non-JSON response */
   }
   if (!res.ok) {
-    const message =
+    const serverMessage =
       body && typeof body === 'object' && 'error' in body && body.error && typeof body.error === 'object' && 'message' in body.error
         ? String((body.error as { message: unknown }).message)
-        : `Request failed (HTTP ${res.status}).`;
+        : '';
+    let message = serverMessage || `Request failed (HTTP ${res.status}).`;
+    if (res.status === 429 && !serverMessage) {
+      message = 'Too many requests. Wait a moment and try again.';
+    } else if (res.status === 409 && !serverMessage) {
+      message = 'That action is already in progress. Wait for it to finish.';
+    }
     throw new ApiError(message, res.status);
   }
   return body as T;

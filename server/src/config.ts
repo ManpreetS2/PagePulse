@@ -8,7 +8,8 @@ export const config = {
   /** Set by tests to use an in-memory database. */
   dbFile: env.PAGEPULSE_DB ?? '',
   fetch: {
-    timeoutMs: 15_000,
+    /** Total per-hop deadline (connect + headers + body). Override with PAGEPULSE_FETCH_TIMEOUT_MS. */
+    timeoutMs: Number(env.PAGEPULSE_FETCH_TIMEOUT_MS ?? 15_000),
     maxRedirects: 5,
     maxBytes: 3 * 1024 * 1024,
     userAgent: 'PagePulseBot/1.0 (+https://github.com/ManpreetS2/pagepulse; change monitoring)'

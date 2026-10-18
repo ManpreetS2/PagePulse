@@ -279,7 +279,7 @@ export function EvidenceCompare({
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{oldLabel}</div>
           {oldMeta && <div className="text-[11px] text-zinc-400 dark:text-zinc-500">{oldMeta}</div>}
         </div>
-        <p className="text-sm leading-relaxed">
+        <p className="break-words text-sm leading-relaxed">
           <HighlightedEvidence text={oldEvidence} value={oldValue} />
         </p>
       </div>
@@ -288,11 +288,67 @@ export function EvidenceCompare({
           <div className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">{newLabel}</div>
           {newMeta && <div className="text-[11px] text-sky-500/80 dark:text-sky-400/80">{newMeta}</div>}
         </div>
-        <p className="text-sm leading-relaxed">
+        <p className="break-words text-sm leading-relaxed">
           <HighlightedEvidence text={newEvidence} value={newValue} />
         </p>
       </div>
     </div>
+  );
+}
+
+/** Evidence panel for changes that were detected but suppressed (no alert). */
+export function QuietReportPanel({
+  report
+}: {
+  report: {
+    summary: string;
+    suppressedCount: number;
+    items: Array<{
+      category: string;
+      oldValue: string;
+      newValue: string;
+      oldEvidence: string;
+      newEvidence: string;
+      reason: string;
+      meaningful: boolean;
+    }>;
+  };
+}) {
+  return (
+    <Card className="space-y-3 border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+      <div>
+        <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200">Why no alert?</h2>
+        <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">{report.summary}</p>
+      </div>
+      <ul className="space-y-3">
+        {report.items.map((item, idx) => (
+          <li key={`${item.category}-${idx}`} className="space-y-2 rounded-lg border border-amber-200/80 bg-white/70 p-3 dark:border-amber-900/60 dark:bg-zinc-950/40">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                {item.category.replace(/_/g, ' ')}
+              </span>
+              <span className="text-zinc-500 dark:text-zinc-400">
+                {item.meaningful ? 'meaningful, off-intent' : 'not meaningful'}
+              </span>
+            </div>
+            {(item.oldValue || item.newValue) && (
+              <p className="text-sm">
+                <span className="font-medium">{item.oldValue || '—'}</span>
+                <span className="mx-2 text-zinc-400">→</span>
+                <span className="font-medium">{item.newValue || '—'}</span>
+              </p>
+            )}
+            <EvidenceCompare
+              oldEvidence={item.oldEvidence}
+              newEvidence={item.newEvidence}
+              oldValue={item.oldValue}
+              newValue={item.newValue}
+            />
+            <p className="break-words text-sm text-zinc-600 dark:text-zinc-300">{item.reason}</p>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

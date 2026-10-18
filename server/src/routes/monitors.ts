@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getDb } from '../db.js';
 import type { ChangeRow, MonitorRow, SnapshotRow } from '../types.js';
 import { createMonitor, MonitorCreationError, previewUrl, applyOverrides } from '../lib/monitorService.js';
-import { runCheck, computeNextCheck } from '../lib/checkRunner.js';
+import { runCheck, computeNextCheck, isMonitorCheckRunning } from '../lib/checkRunner.js';
 import { diffSectionText } from '../lib/diffEngine.js';
 import { getComparisonProvider } from '../lib/meaning.js';
 import { matchIntent, parseIntent } from '../lib/intent.js';
@@ -146,7 +146,14 @@ router.post(
   '/monitors/:id/check',
   asyncHandler(async (req, res) => {
     const monitor = requireMonitor(idParam(req.params.id!));
+    if (isMonitorCheckRunning(monitor.id)) {
+      throw new HttpError(409, 'A check is already running for this monitor.');
+    }
     const outcome = await runCheck(monitor.id);
+    // runCheck also short-circuits if a race slipped through; surface that as 409.
+    if (outcome.message === 'A check is already running for this monitor.') {
+      throw new HttpError(409, outcome.message);
+    }
     res.json({ ...outcome, monitor: monitorWithExtras(requireMonitor(monitor.id)) });
   })
 );
@@ -162,7 +169,9 @@ router.post('/monitors/:id/pause', (req, res) => {
 router.post('/monitors/:id/resume', (req, res) => {
   const monitor = requireMonitor(idParam(req.params.id!));
   getDb()
-    .prepare("UPDATE monitors SET status = 'healthy', failureCount = 0, nextCheckAt = ?, updatedAt = datetime('now') WHERE id = ?")
+    .prepare(
+      "UPDATE monitors SET status = 'healthy', failureCount = 0, lastError = NULL, nextCheckAt = ?, updatedAt = datetime('now') WHERE id = ?"
+    )
     .run(computeNextCheck(monitor.checkFrequency), monitor.id);
   res.json(monitorWithExtras(requireMonitor(monitor.id)));
 });

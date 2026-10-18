@@ -73,6 +73,15 @@ export default function Layout() {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
+  useEffect(() => {
     let alive = true;
     const load = () => {
       get<{ count: number }>('/api/notifications/unread-count')
