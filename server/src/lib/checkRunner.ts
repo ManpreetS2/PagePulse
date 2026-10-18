@@ -24,6 +24,21 @@ export type { QuietReport, QuietReportItem } from './quietReport.js';
 
 const runningMonitors = new Set<number>();
 
+/** True while runCheck is in flight for this monitor in the current process. */
+export function isMonitorCheckRunning(monitorId: number): boolean {
+  return runningMonitors.has(monitorId);
+}
+
+/** Test-only: mark a monitor as running so recovery can be asserted against it. */
+export function markMonitorCheckRunningForTests(monitorId: number): void {
+  runningMonitors.add(monitorId);
+}
+
+/** Test-only: clear the in-memory running flag. */
+export function clearMonitorCheckRunningForTests(monitorId: number): void {
+  runningMonitors.delete(monitorId);
+}
+
 export const FREQUENCY_MINUTES: Record<CheckFrequency, number | null> = {
   '15min': 15,
   hourly: 60,
