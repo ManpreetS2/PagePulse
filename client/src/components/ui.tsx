@@ -279,7 +279,7 @@ export function EvidenceCompare({
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{oldLabel}</div>
           {oldMeta && <div className="text-[11px] text-zinc-400 dark:text-zinc-500">{oldMeta}</div>}
         </div>
-        <p className="text-sm leading-relaxed">
+        <p className="break-words text-sm leading-relaxed">
           <HighlightedEvidence text={oldEvidence} value={oldValue} />
         </p>
       </div>
@@ -288,7 +288,7 @@ export function EvidenceCompare({
           <div className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">{newLabel}</div>
           {newMeta && <div className="text-[11px] text-sky-500/80 dark:text-sky-400/80">{newMeta}</div>}
         </div>
-        <p className="text-sm leading-relaxed">
+        <p className="break-words text-sm leading-relaxed">
           <HighlightedEvidence text={newEvidence} value={newValue} />
         </p>
       </div>
@@ -344,7 +344,7 @@ export function QuietReportPanel({
               oldValue={item.oldValue}
               newValue={item.newValue}
             />
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">{item.reason}</p>
+            <p className="break-words text-sm text-zinc-600 dark:text-zinc-300">{item.reason}</p>
           </li>
         ))}
       </ul>

@@ -191,11 +191,13 @@ In production, Express serves the built client from `client/dist`.
 Requires **Node.js 20+**. No Docker, external database, Redis, or API key is required.
 
 ```bash
-npm install          # installs client + server workspaces from the lockfile
+npm ci               # clean install from the lockfile (uses legacy-peer-deps for Vitest 4 / Vite peers)
 npm run db:init      # create a clean SQLite database under ./data
 npm run db:seed      # reset Evaluation Lab pages to baseline (optional)
 npm run dev          # API on :3000, Vite client on :5173
 ```
+
+> The root `.npmrc` sets `legacy-peer-deps=true` so Vitest 4 installs cleanly alongside the Vite 6 toolchain. `npm audit` is clean after the v1.1.1 dependency hardening.
 
 Useful scripts:
 
