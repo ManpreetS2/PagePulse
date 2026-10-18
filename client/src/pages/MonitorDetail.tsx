@@ -5,9 +5,9 @@ import {
   ThumbsDown, ThumbsUp, Trash2, Zap
 } from 'lucide-react';
 import { del, get, patch, post } from '../lib/api';
-import type { Change, CheckFrequency, Monitor, Snapshot } from '../lib/types';
+import type { Change, CheckFrequency, CheckOutcome, Monitor, Snapshot } from '../lib/types';
 import { CATEGORY_LABELS, FIELD_LABELS, FREQUENCY_LABELS, TRIGGER_LABELS, formatDateTime, formatRelative, percent } from '../lib/format';
-import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, EvidenceCompare, HealthBadge, Modal, PageSpinner, StatusBadge } from '../components/ui';
+import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, EvidenceCompare, HealthBadge, Modal, PageSpinner, QuietReportPanel, StatusBadge } from '../components/ui';
 import { formatDurationMs } from '../lib/monitorHealth';
 
 interface MonitorDetailData extends Monitor {
@@ -63,8 +63,8 @@ export default function MonitorDetail() {
     try {
       if (action === 'check') {
         setStatusMessage('Checking the page now…');
-        const outcome = await post<{ message: string }>(`/api/monitors/${monitor.id}/check`);
-        setStatusMessage(outcome.message);
+        const outcome = await post<CheckOutcome>(`/api/monitors/${monitor.id}/check`);
+        setStatusMessage(outcome.quietReport?.summary || outcome.message);
       } else if (action === 'delete') {
         await del(`/api/monitors/${monitor.id}`);
         navigate('/dashboard');
@@ -197,6 +197,10 @@ export default function MonitorDetail() {
           </Button>
         </div>
       </div>
+
+      {monitor.latestQuietReport && (
+        <QuietReportPanel report={monitor.latestQuietReport} />
+      )}
 
       {/* Info cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

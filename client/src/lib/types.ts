@@ -71,6 +71,24 @@ export interface Monitor {
   monitoredSection?: string;
   latestExtractedValue?: string | null;
   lastSuccessfulCheckAt?: string | null;
+  latestQuietReport?: QuietReport | null;
+}
+
+export interface QuietReportItem {
+  category: string;
+  oldValue: string;
+  newValue: string;
+  oldEvidence: string;
+  newEvidence: string;
+  reason: string;
+  meaningful: boolean;
+  intentMatched: boolean;
+}
+
+export interface QuietReport {
+  summary: string;
+  suppressedCount: number;
+  items: QuietReportItem[];
 }
 
 export interface Snapshot {
@@ -138,6 +156,7 @@ export interface CheckOutcome {
   changes: Change[];
   alertsCreated: number;
   message: string;
+  quietReport?: QuietReport | null;
   monitor: Monitor;
 }
 

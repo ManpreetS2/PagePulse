@@ -2,8 +2,9 @@
  * Shared monitor serialization for API responses (list, detail, guided demo).
  */
 import { getDb } from '../db.js';
-import type { MonitorRow, SnapshotRow } from '../types.js';
+import type { ChangeRow, MonitorRow, SnapshotRow } from '../types.js';
 import { parseIntent } from './intent.js';
+import { buildQuietReport } from './quietReport.js';
 import { deriveMonitorHealth } from './monitorHealth.js';
 import { safeJson } from '../routes/helpers.js';
 
@@ -16,10 +17,10 @@ export function monitorWithExtras(m: MonitorRow) {
   const unread = db.prepare('SELECT COUNT(*) as c FROM notifications WHERE monitorId = ? AND read = 0').get(m.id) as { c: number };
   const latest = db
     .prepare(
-      "SELECT extractedFacts, sectionMatchConfidence, sectionHeading, retrievalTime FROM snapshots WHERE monitorId = ? AND fetchStatus = 'ok' ORDER BY id DESC LIMIT 1"
+      "SELECT id, extractedFacts, sectionMatchConfidence, sectionHeading, retrievalTime FROM snapshots WHERE monitorId = ? AND fetchStatus = 'ok' ORDER BY id DESC LIMIT 1"
     )
     .get(m.id) as
-    | (Pick<SnapshotRow, 'extractedFacts' | 'sectionMatchConfidence' | 'sectionHeading'> & { retrievalTime: string })
+    | (Pick<SnapshotRow, 'id' | 'extractedFacts' | 'sectionMatchConfidence' | 'sectionHeading'> & { retrievalTime: string })
     | undefined;
   const facts = safeJson(latest?.extractedFacts ?? '[]', [] as Array<{ type: string; value: string; context: string | null; raw: string }>);
   const health = deriveMonitorHealth({
@@ -37,6 +38,21 @@ export function monitorWithExtras(m: MonitorRow) {
           .map((f) => (f.type === 'availability' && f.context ? `${f.context}: ${f.value}` : f.raw || f.value))
           .join(' · ')
       : m.extractedTargetDescription;
+
+  // Surface the latest quiet (no-alert) evidence when the last check filtered noise.
+  let latestQuietReport = null;
+  if ((m.lastCheckSummary ?? '') === 'irrelevant_change' && latest?.id) {
+    const suppressed = db
+      .prepare(
+        `SELECT * FROM changes
+         WHERE monitorId = ? AND newSnapshotId = ?
+           AND NOT (meaningful = 1 AND intentMatched = 1)
+         ORDER BY id ASC`
+      )
+      .all(m.id, latest.id) as ChangeRow[];
+    latestQuietReport = buildQuietReport(suppressed);
+  }
+
   return {
     ...m,
     intent: safeJson(m.intentJson, parseIntent(m.userIntent)),
@@ -49,6 +65,7 @@ export function monitorWithExtras(m: MonitorRow) {
     lastFetchDurationMs: m.lastFetchDurationMs ?? null,
     monitoredSection: latest?.sectionHeading || m.selectedSectionHeading,
     latestExtractedValue: latestValue || null,
-    lastSuccessfulCheckAt: latest?.retrievalTime ?? m.lastCheckedAt
+    lastSuccessfulCheckAt: latest?.retrievalTime ?? m.lastCheckedAt,
+    latestQuietReport
   };
 }

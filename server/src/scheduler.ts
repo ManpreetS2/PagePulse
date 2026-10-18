@@ -10,6 +10,7 @@ import cron from 'node-cron';
 import { getDb } from './db.js';
 import { config } from './config.js';
 import { runCheck } from './lib/checkRunner.js';
+import { recoverStuckCheckingMonitors } from './lib/stuckChecks.js';
 import type { MonitorRow } from './types.js';
 
 const lastFetchByHost = new Map<string, number>();
@@ -19,6 +20,11 @@ export async function schedulerTick(): Promise<void> {
   if (tickRunning) return;
   tickRunning = true;
   try {
+    const recovered = recoverStuckCheckingMonitors();
+    if (recovered.recoveredIds.length > 0) {
+      console.warn(`[scheduler] recovered stuck checking monitors: ${recovered.recoveredIds.join(', ')}`);
+    }
+
     const due = getDb()
       .prepare(
         `SELECT * FROM monitors

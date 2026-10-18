@@ -2,6 +2,24 @@
 
 All notable changes to PagePulse are documented in this file.
 
+## 1.1.1
+
+### Security
+
+- **DNS pinning** — webpage fetches now connect only to addresses validated by the SSRF guard (custom DNS lookup), closing the DNS-rebinding TOCTOU window between resolve and connect.
+- **IPv4-mapped IPv6** — `::ffff:7f00:1`-style addresses are decoded and blocked as private when appropriate.
+- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cross-Origin-Resource-Policy`, and a restrictive `Content-Security-Policy` on all responses.
+
+### Fixed
+
+- **Stuck `checking` monitors** — monitors left in `checking` after a crash/restart (or a hung check) are recovered on startup and by the scheduler so they are not skipped forever.
+- **`alertsCreated` count** — now counts unique notifications only (duplicate value changes no longer inflate the counter).
+
+### Added
+
+- **Quiet report** — when a check finds page changes but creates no alert, the API and monitor detail UI show evidence-backed “Why no alert?” items (cosmetic vs off-intent), matching PagePulse’s evidence-first contract.
+- Regression tests for SSRF pin addresses, mapped IPv6, security headers, stuck-check recovery, and quiet reports.
+
 ## 1.1.0
 
 ### Added

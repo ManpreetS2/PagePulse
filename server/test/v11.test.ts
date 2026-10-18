@@ -165,7 +165,7 @@ describe('health endpoint and blocked preview messaging', () => {
   it('reports API health with version', async () => {
     const res = await request.get('/api/health').expect(200);
     expect(res.body.ok).toBe(true);
-    expect(res.body.version).toBe('1.1.0');
+    expect(res.body.version).toBe('1.1.1');
   });
 
   it('returns a clear blocked message for private URLs', async () => {

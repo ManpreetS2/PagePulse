@@ -5,7 +5,7 @@ import {
   RefreshCw, Sparkles, ThumbsDown, Trash2, Zap
 } from 'lucide-react';
 import { del, get, post } from '../lib/api';
-import type { Monitor, Stats } from '../lib/types';
+import type { CheckOutcome, Monitor, Stats } from '../lib/types';
 import { FREQUENCY_LABELS, formatRelative, hostname } from '../lib/format';
 import { formatDurationMs } from '../lib/monitorHealth';
 import { Button, Card, ConfidenceMeter, ConfirmDialog, EmptyState, ErrorBanner, HealthBadge, PageSpinner, StatusBadge } from '../components/ui';
@@ -53,8 +53,8 @@ export default function Dashboard() {
     try {
       if (action === 'check') {
         setStatusMessage(`Checking “${monitor.name}”…`);
-        const outcome = await post<{ message: string }>(`/api/monitors/${monitor.id}/check`);
-        setStatusMessage(`“${monitor.name}”: ${outcome.message}`);
+        const outcome = await post<CheckOutcome>(`/api/monitors/${monitor.id}/check`);
+        setStatusMessage(`“${monitor.name}”: ${outcome.quietReport?.summary || outcome.message}`);
       } else if (action === 'delete') {
         await del(`/api/monitors/${monitor.id}`);
         setDeleteTarget(null);

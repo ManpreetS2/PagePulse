@@ -40,6 +40,18 @@ export function createApp(): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', false);
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    // SPA needs the inline theme boot script + Vite assets; keep object/base locked down.
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'"
+    );
+    next();
+  });
   app.use(express.json({ limit: '200kb' }));
 
   /* ---- Evaluation Lab pages (plain HTML, fetched by the monitor pipeline) ---- */
@@ -66,7 +78,7 @@ export function createApp(): express.Express {
   app.use('/api', settingsRouter);
   app.use('/api', demoRouter);
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, version: '1.1.0' });
+    res.json({ ok: true, version: '1.1.1' });
   });
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { message: 'Unknown API endpoint.' } });
