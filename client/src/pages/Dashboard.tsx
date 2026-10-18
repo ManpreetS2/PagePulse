@@ -4,7 +4,7 @@ import {
   Activity, Bell, CheckSquare, Eye, FlaskConical, MonitorX, Pause, Play, Plus,
   RefreshCw, Sparkles, ThumbsDown, Trash2, Zap
 } from 'lucide-react';
-import { del, get, post } from '../lib/api';
+import { ApiError, del, formatApiError, get, post } from '../lib/api';
 import type { CheckOutcome, Monitor, Stats } from '../lib/types';
 import { FREQUENCY_LABELS, formatRelative, hostname } from '../lib/format';
 import { formatDurationMs } from '../lib/monitorHealth';
@@ -38,7 +38,7 @@ export default function Dashboard() {
       setMonitors(m);
       setStats(s);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load.');
+      setError(formatApiError(err, 'Failed to load.'));
     }
   }, []);
 
@@ -47,6 +47,8 @@ export default function Dashboard() {
   }, [load]);
 
   const runAction = async (monitor: Monitor, action: 'check' | 'pause' | 'resume' | 'delete') => {
+    // Ignore double-clicks while this (or another) monitor action is in flight.
+    if (busyId !== null) return;
     setBusyId(monitor.id);
     setBusyAction(action);
     setError('');
@@ -65,7 +67,13 @@ export default function Dashboard() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Action failed.');
+      if (err instanceof ApiError && err.status === 409 && action === 'check') {
+        setStatusMessage(formatApiError(err));
+        setError('');
+      } else {
+        setError(formatApiError(err, 'Action failed.'));
+        if (action === 'check') setStatusMessage('');
+      }
     } finally {
       setBusyId(null);
       setBusyAction('');
@@ -81,7 +89,7 @@ export default function Dashboard() {
       setStatusMessage('Sample monitors loaded. They point at the local Evaluation Lab pages.');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load samples.');
+      setError(formatApiError(err, 'Could not load samples.'));
     } finally {
       setBusyId(null);
       setBusyAction('');

@@ -191,13 +191,13 @@ In production, Express serves the built client from `client/dist`.
 Requires **Node.js 20+**. No Docker, external database, Redis, or API key is required.
 
 ```bash
-npm ci               # clean install from the lockfile (uses legacy-peer-deps for Vitest 4 / Vite peers)
+npm ci               # clean install from the lockfile (no legacy-peer-deps)
 npm run db:init      # create a clean SQLite database under ./data
 npm run db:seed      # reset Evaluation Lab pages to baseline (optional)
 npm run dev          # API on :3000, Vite client on :5173
 ```
 
-> The root `.npmrc` sets `legacy-peer-deps=true` so Vitest 4 installs cleanly alongside the Vite 6 toolchain. `npm audit` is clean after the v1.1.1 dependency hardening.
+> Vitest 4 peers are satisfied by `vite@^6.4.4` on both workspaces — there is no `.npmrc legacy-peer-deps`. Prefer `npm ci`. Regenerating the lockfile from scratch on npm 10 can hit an arborist `edgesOut` bug; use npm ≥ 11 for lockfile regeneration (see `docs/audit/findings-2026-10-18.md`). `npm audit` is clean after the v1.1.1 dependency hardening.
 
 Useful scripts:
 
